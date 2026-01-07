@@ -1,0 +1,1 @@
+#define TESTING 1
