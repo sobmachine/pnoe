@@ -1,7 +1,9 @@
 // rgb2ycbcr.c
 #include "rgb2ycbcr.h"
+#include <stdint.h>
 
-// Standard ITU-R BT.601 conversion
+#define CLAMP_8(x) ((x) < 0 ? 0 : ((x) > 255 ? 255 : (x)))
+
 void rgb2ycbcr_block(
     const uint8_t r[N][N],
     const uint8_t g[N][N],
@@ -12,21 +14,24 @@ void rgb2ycbcr_block(
 ) {
     for (int i = 0; i < N; i++) {
         for (int j = 0; j < N; j++) {
-            uint8_t R = r[i][j];
-            uint8_t G = g[i][j];
-            uint8_t B = b[i][j];
 
-            // Y channel
-            int Y  = (  77 * R + 150 * G +  29 * B ) >> 8; // approx 0.299,0.587,0.114
-            // Cb channel
-            int Cb = ((-43 * R -  85 * G + 128 * B) >> 8) + 128; // approx -0.1687,-0.3313,0.5
-            // Cr channel
-            int Cr = ((128 * R - 107 * G -  21 * B) >> 8) + 128; // approx 0.5,-0.4187,-0.0813
+            int R = r[i][j];
+            int G = g[i][j];
+            int B = b[i][j];
 
-            // clamp 0..255
-            y[i][j]  = (Y  < 0) ? 0 : (Y  > 255 ? 255 : Y);
-            cb[i][j] = (Cb < 0) ? 0 : (Cb > 255 ? 255 : Cb);
-            cr[i][j] = (Cr < 0) ? 0 : (Cr > 255 ? 255 : Cr);
+            // BT.601 full-range forward conversion
+            //
+            // Y  =  0.299000 R + 0.587000 G + 0.114000 B
+            // Cb = -0.168736 R - 0.331264 G + 0.500000 B + 128
+            // Cr =  0.500000 R - 0.418688 G - 0.081312 B + 128
+
+            int Y  = (19595 * R + 38470 * G +  7471 * B + 32768) >> 16;
+            int Cb = (-11056 * R - 21712 * G + 32768 * B + 32768) >> 16;
+            int Cr = (32768 * R - 27440 * G -  5328 * B + 32768) >> 16;
+
+            y[i][j]  = CLAMP_8(Y);
+            cb[i][j] = CLAMP_8(Cb + 128);
+            cr[i][j] = CLAMP_8(Cr + 128);
         }
     }
 }
